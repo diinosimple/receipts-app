@@ -187,8 +187,10 @@ def index():
     ).execute()
 
     # Excel 追記
+    print("Excel ID:", excel_id)
     excel_id = get_or_create_excel(service)
     append_excel(service, excel_id, [date, payee, description, amount_display])
+    print("Excel ID:", excel_id)
 
     return "アップロード完了しました 👍"
 
