@@ -23,7 +23,6 @@ RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"  # Drive フォルダID
 print("EXCEL_FILE_ID:", EXCEL_FILE_ID)  # デバッグ用
 
 
-
 # === OAuth 認証の取得 ===
 def get_drive_service():
     """Google Drive API サービスオブジェクトを返す"""
