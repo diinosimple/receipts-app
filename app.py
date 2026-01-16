@@ -48,7 +48,7 @@ def update_excel(service, filename, pay_date, payee, amount):
     # 以降の openpyxl での読み込みと追記処理はそのまま
     wb = load_workbook(fh)
     ws = wb.active
-    ws.append([filename, pay_date, payee, amount])
+    ws.append([pay_date, payee, amount, filename, ])
 
     # 保存してアップロード（更新）
     out_fh = io.BytesIO()
