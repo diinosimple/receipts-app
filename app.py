@@ -23,54 +23,39 @@ RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"  # Drive フォルダID
 print("EXCEL_FILE_ID:", EXCEL_FILE_ID)  # デバッグ用
 
 
-# === OAuth 認証の取得 ===
+# -----------------------------
+# Google Drive サービス作成
+# -----------------------------
 def get_drive_service():
-    """Google Drive API サービスオブジェクトを返す"""
     try:
-        creds = None
-        # TOKEN_PICKLE_B64 から creds を復元
-        if 'TOKEN_PICKLE_B64' in os.environ:
-            import base64, pickle, io
-            token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
-            creds = pickle.load(io.BytesIO(token_bytes))
-            print("Credentials loaded successfully:", creds)
-        
-        if not creds or not creds.valid:
-            raise Exception("Google API credentials are invalid or missing")
-        
+        token_bytes = base64.b64decode(TOKEN_PICKLE_B64)
+        creds = pickle.load(io.BytesIO(token_bytes))
         service = build('drive', 'v3', credentials=creds)
-        print("Drive service successfully created")  # service 作成後に出力
         return service
     except Exception as e:
         print("Error creating Drive service:", e)
-        raise  # Flask に伝えるため再度例外を投げる
-
+        raise Exception("Google API credentials are invalid or missing")
 
     
 # -----------------------------
 # Excel ファイル取得/更新
 # -----------------------------
-def update_excel(service, filename, pay_date, payee, amount):
-    # Excel ファイルを Drive からダウンロード
-    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID)
+ddef update_excel(service, filename, pay_date, payee, amount):
+    # Excel を Drive から取得
+    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID, supportsAllDrives=True)
     fh = io.BytesIO(request_dl.execute())
-    try:
-        wb = load_workbook(fh)
-    except:
-        wb = Workbook()
+    wb = load_workbook(fh)
     ws = wb.active
 
-    # 末尾に追加
-    ws.append([pay_date, payee, amount, filename])
+    # 最終行に追加
+    ws.append([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), filename, pay_date, payee, amount])
 
-    # 再び Drive にアップロード
-    fh_upload = io.BytesIO()
-    wb.save(fh_upload)
-    fh_upload.seek(0)
-
-    media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
-
+    # Excel を再アップロード
+    fh_out = io.BytesIO()
+    wb.save(fh_out)
+    fh_out.seek(0)
+    media = MediaIoBaseUpload(fh_out, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
 
 
 # -----------------------------
@@ -78,39 +63,35 @@ def update_excel(service, filename, pay_date, payee, amount):
 # -----------------------------
 @app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == "POST":
-        if "image" not in request.files:
-            return "画像が送信されていません。"
+    if request.method == 'POST':
+        if 'receipt' not in request.files:
+            return "画像が送信されていません。", 400
 
-        file = request.files["image"]
-        if file.filename == "":
-            return "ファイル名が空です。"
+        file = request.files['receipt']
+        payee = request.form.get('payee', 'Unknown')
+        pay_date = request.form.get('pay_date', datetime.now().strftime("%Y-%m-%d"))
+        amount = request.form.get('amount', '¥0')
 
-        pay_date = request.form.get("pay_date", datetime.today().strftime("%Y-%m-%d"))
-        payee = request.form.get("payee", "Unknown")
-        amount = request.form.get("amount", "¥0")
+        filename = f"{payee} {pay_date} {amount}.jpg"
 
-        # ファイル名整形
-        safe_payee = payee.replace(" ", "_")
-        safe_amount = amount.replace(" ", "")
-        filename = f"{safe_payee}_{pay_date}_{safe_amount}.jpg"
+        service = get_drive_service()
 
         # Drive にアップロード
-        drive_service = get_drive_service()
-        media = MediaIoBaseUpload(file, mimetype="image/jpeg")
-        file_metadata = {
-            "name": filename,
-            "parents": [RECEIPTS_FOLDER_ID]
-        }
-        drive_service.files().create(body=file_metadata, media_body=media).execute()
+        file_stream = io.BytesIO(file.read())
+        media = MediaIoBaseUpload(file_stream, mimetype="image/jpeg")
+        service.files().create(
+            body={'name': filename, 'parents': [RECEIPTS_FOLDER_ID]},
+            media_body=media,
+            supportsAllDrives=True
+        ).execute()
 
         # Excel に追記
-        update_excel(drive_service, filename, pay_date, payee, amount)
+        update_excel(service, filename, pay_date, payee, amount)
 
-        return "画像を受信して Drive + Excel に反映しました 👍"
+        return f"画像を受信しました: {filename}"
 
-    return render_template("index.html")
-
+    return render_template('index.html')
+    
 # -----------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
