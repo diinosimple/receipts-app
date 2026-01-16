@@ -34,12 +34,26 @@ def get_drive_service():
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        pay_date = request.form["pay_date"]
-        vendor = request.form["vendor"]
-        amount = request.form["amount"]
+
+        # ---------
+        # 防御コード（Bad Request 対策）
+        # ---------
+        if "image" not in request.files:
+            return "画像が送信されていません", 400
+
         image = request.files["image"]
+        if image.filename == "":
+            return "画像ファイルが空です", 400
+
+        pay_date = request.form.get("pay_date")
+        vendor = request.form.get("vendor")
+        amount = request.form.get("amount")
+
+        if not all([pay_date, vendor, amount]):
+            return "フォーム項目が不足しています", 400
 
         drive = get_drive_service()
+
 
         # ==========
         # 画像アップロード
