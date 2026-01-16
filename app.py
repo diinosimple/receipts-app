@@ -14,7 +14,7 @@ from openpyxl import load_workbook, Workbook
 # 環境変数（Railway 用）
 # -----------------------------
 TOKEN_PICKLE_B64 = os.environ.get("TOKEN_PICKLE_B64")  # token.pickle を base64 にしたもの
-EXCEL_FILE_ID = os.environ.get("EXCEL_FILE_ID")        # Excel ファイルID
+EXCEL_FILE_ID = os.environ.get("1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk")        # Excel ファイルID
 RECEIPTS_FOLDER_ID = os.environ.get("RECEIPTS_FOLDER_ID")  # Drive フォルダID
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -55,7 +55,7 @@ def update_excel(service, filename, pay_date, payee, amount):
 
     media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
     service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
-    
+
 # -----------------------------
 # ルート
 # -----------------------------
