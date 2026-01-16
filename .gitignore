@@ -1,0 +1,9 @@
+token.json
+token.pickle
+credentials.json
+__pycache__/
+.env
+
+# Mac
+.DS_Store
+
