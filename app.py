@@ -10,25 +10,35 @@ from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
 from openpyxl import load_workbook, Workbook
 
+pp = Flask(__name__)
+
 # -----------------------------
 # 環境変数（Railway 用）
 # -----------------------------
 TOKEN_PICKLE_B64 = os.environ.get("TOKEN_PICKLE_B64")  # token.pickle を base64 にしたもの
-EXCEL_FILE_ID = os.environ.get("1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk")        # Excel ファイルID
-RECEIPTS_FOLDER_ID = os.environ.get("RECEIPTS_FOLDER_ID")  # Drive フォルダID
+EXCEL_FILE_ID = "1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk"      # Excel ファイルID
+RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"  # Drive フォルダID
+
+print("EXCEL_FILE_ID:", EXCEL_FILE_ID)  # デバッグ用
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-app = Flask(__name__)
 
-# -----------------------------
-# Drive サービス作成
-# -----------------------------
+# === OAuth 認証の取得 ===
 def get_drive_service():
+    print("Drive service:", service)
     creds = None
-    if TOKEN_PICKLE_B64:
-        token_bytes = base64.b64decode(TOKEN_PICKLE_B64)
+    # 環境変数から token.pickle を読み込む場合
+    if 'TOKEN_PICKLE_B64' in os.environ:
+        token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
         creds = pickle.load(io.BytesIO(token_bytes))
+    else:
+        # ローカル開発時はブラウザ認証
+        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+        creds = flow.run_local_server(port=0)
+        # token.pickle 保存（ローカル用）
+        with open("token.pickle", "wb") as token:
+            pickle.dump(creds, token)
     service = build('drive', 'v3', credentials=creds)
     return service
 
@@ -37,7 +47,7 @@ def get_drive_service():
 # -----------------------------
 def update_excel(service, filename, pay_date, payee, amount):
     # Excel ファイルを Drive からダウンロード
-    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID, supportsAllDrives=True)
+    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID)
     fh = io.BytesIO(request_dl.execute())
     try:
         wb = load_workbook(fh)
@@ -54,7 +64,7 @@ def update_excel(service, filename, pay_date, payee, amount):
     fh_upload.seek(0)
 
     media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
+    service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
 
 # -----------------------------
 # ルート
