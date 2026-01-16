@@ -66,6 +66,8 @@ def update_excel(service, filename, pay_date, payee, amount):
     media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
     service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
 
+    
+
 # -----------------------------
 # ルート
 # -----------------------------
