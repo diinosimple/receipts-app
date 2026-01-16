@@ -2,6 +2,7 @@ import os
 import io
 import datetime
 import pickle
+import base64
 
 from flask import Flask, request, redirect, url_for, render_template_string
 from googleapiclient.discovery import build
@@ -20,7 +21,19 @@ app = Flask(__name__)
 # ========================
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
+def restore_token_from_env():
+    if os.path.exists("token.pickle"):
+        return
+
+    token_b64 = os.environ.get("TOKEN_PICKLE_BASE64")
+    if not token_b64:
+        return
+
+    with open("token.pickle", "wb") as f:
+        f.write(base64.b64decode(token_b64))
+
 def get_drive_service():
+    restore_token_from_env()
     creds = None
     if os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as f:
