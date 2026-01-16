@@ -31,7 +31,13 @@ def get_drive_service():
 # Excelに追記
 # ===========================
 def update_excel(service, filename, pay_date, payee, amount):
-    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID, supportsAllDrives=True)
+    # 【修正箇所】 get_media ではなく export を使用する
+    # mimeTypeに 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' を指定してExcel形式で取得
+    request_dl = service.files().export_media(
+        fileId=EXCEL_FILE_ID,
+        mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request_dl)
     done = False
@@ -39,17 +45,23 @@ def update_excel(service, filename, pay_date, payee, amount):
         status, done = downloader.next_chunk()
     fh.seek(0)
 
+    # 以降の openpyxl での読み込みと追記処理はそのまま
     wb = load_workbook(fh)
     ws = wb.active
     ws.append([filename, pay_date, payee, amount])
 
+    # 保存してアップロード（更新）
     out_fh = io.BytesIO()
     wb.save(out_fh)
     out_fh.seek(0)
 
-    file_metadata = {"name": "receipts.xlsx"}
-    media = MediaIoBaseUpload(out_fh, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
+    # 更新時は update を使用
+    media = MediaIoBaseUpload(
+        out_fh, 
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        resumable=True
+    )
+    service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
 
 # ===========================
 # ファイルアップロード
