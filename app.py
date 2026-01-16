@@ -1,75 +1,25 @@
 import os
 import io
-import datetime
-import pickle
 import base64
+from flask import Flask, request
+from werkzeug.utils import secure_filename
 
-from flask import Flask, request, redirect, url_for, render_template_string
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
-from google.auth.transport.requests import Request
+from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
-from openpyxl import load_workbook
 
-# ========================
-# Flask
-# ========================
+from openpyxl import load_workbook
+from openpyxl import Workbook
+
 app = Flask(__name__)
 
-# ========================
-# Google Drive 認証
-# ========================
+# ===== 設定 =====
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-
-def restore_token_from_env():
-    if os.path.exists("token.pickle"):
-        return
-
-    token_b64 = os.environ.get("TOKEN_PICKLE_BASE64")
-    if not token_b64:
-        return
-
-    with open("token.pickle", "wb") as f:
-        f.write(base64.b64decode(token_b64))
-
-def get_drive_service():
-    restore_token_from_env()
-    creds = None
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as f:
-            creds = pickle.load(f)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            raise RuntimeError("token.pickle not found or invalid")
-
-    return build("drive", "v3", credentials=creds)
-
-# ========================
-# Drive 操作
-# ========================
-def find_folder(service, name, parent_id=None):
-    q = f"name='{name}' and mimeType='application/vnd.google-apps.folder'"
-    if parent_id:
-        q += f" and '{parent_id}' in parents"
-
-    res = service.files().list(q=q, spaces="drive").execute()
-    files = res.get("files", [])
-    return files[0]["id"] if files else None
+RECEIPTS_FOLDER_ID = "1YzEouvialQDhMEkWPpjG-elvD7Gb3Csy"
+EXCEL_FILE_NAME = "receipts.xlsx"
 
 
-def find_file(service, name, parent_id):
-    q = f"name='{name}' and '{parent_id}' in parents"
-    res = service.files().list(q=q, spaces="drive").execute()
-    files = res.get("files", [])
-    return files[0]["id"] if files else None
-
-
-# ========================
-# 画面
-# ========================
+# ===== HTML =====
 HTML = """
 <!doctype html>
 <html>
@@ -82,13 +32,7 @@ HTML = """
 
 <form method="post" enctype="multipart/form-data">
   <p>
-    <input
-      type="file"
-      name="image"
-      accept="image/*"
-      capture="environment"
-      required
-    >
+    <input type="file" name="image" accept="image/*" capture="environment" required>
   </p>
 
   <p>支払日:<br>
@@ -103,6 +47,10 @@ HTML = """
      <input type="text" name="description" required>
   </p>
 
+  <p>金額:<br>
+     <input type="number" name="amount" required>
+  </p>
+
   <p>
     <button type="submit">アップロード</button>
   </p>
@@ -113,90 +61,131 @@ HTML = """
 """
 
 
+# ===== token.pickle 復元（Render用）=====
+def restore_token_from_env():
+    if os.path.exists("token.pickle"):
+        return
 
-# ========================
-# ルーティング
-# ========================
+    token_b64 = os.environ.get("TOKEN_PICKLE_BASE64")
+    if not token_b64:
+        return
+
+    with open("token.pickle", "wb") as f:
+        f.write(base64.b64decode(token_b64))
+
+
+# ===== Google Drive Service =====
+def get_drive_service():
+    restore_token_from_env()
+
+    creds = Credentials.from_authorized_user_file("token.pickle", SCOPES)
+    return build("drive", "v3", credentials=creds)
+
+
+# ===== Excel ファイル取得 or 作成 =====
+def get_or_create_excel(service):
+    query = f"name='{EXCEL_FILE_NAME}' and '{RECEIPTS_FOLDER_ID}' in parents"
+    res = service.files().list(q=query, fields="files(id,name)").execute()
+    files = res.get("files", [])
+
+    if files:
+        return files[0]["id"]
+
+    # 新規作成
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["支払日", "支払い先", "内容", "金額"])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    media = MediaIoBaseUpload(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    file_metadata = {
+        "name": EXCEL_FILE_NAME,
+        "parents": [RECEIPTS_FOLDER_ID]
+    }
+
+    file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields="id"
+    ).execute()
+
+    return file["id"]
+
+
+# ===== Excel に追記 =====
+def append_excel(service, excel_id, row):
+    request = service.files().get_media(fileId=excel_id)
+    fh = io.BytesIO(request.execute())
+
+    wb = load_workbook(fh)
+    ws = wb.active
+    ws.append(row)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    media = MediaIoBaseUpload(
+        out,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        resumable=False
+    )
+
+    service.files().update(
+        fileId=excel_id,
+        media_body=media
+    ).execute()
+
+
+# ===== メイン =====
 @app.route("/", methods=["GET", "POST"])
-def upload():
-    if request.method == "POST":
-        service = get_drive_service()
+def index():
+    if request.method == "GET":
+        return HTML
 
-        # フォルダ取得
-        root_id = find_folder(service, "ReceiptsApp")
-        images_id = find_folder(service, "images", root_id)
+    service = get_drive_service()
 
-        if not root_id or not images_id:
-            return "Drive フォルダが見つかりません"
+    # フォーム値取得
+    date = request.form["date"]
+    payee = request.form["payee"]
+    description = request.form["description"]
 
-        # ===== 画像保存 =====
-        image = request.files["image"]
-        filename = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_") + image.filename
+    amount_int = int(request.form["amount"])
+    amount_display = f"¥{amount_int:,}"
+    amount_for_filename = f"Y{amount_int}"
 
-        media = MediaIoBaseUpload(
-            io.BytesIO(image.read()),
-            mimetype=image.content_type,
-            resumable=False,
-        )
+    # ファイル名生成
+    base_name = f"{payee} {date} {amount_for_filename}"
+    safe_name = secure_filename(base_name)
+    filename = f"{safe_name}.jpg"
 
-        file_metadata = {
+    # 画像アップロード
+    image = request.files["image"]
+    media = MediaIoBaseUpload(image.stream, mimetype="image/jpeg")
+
+    service.files().create(
+        body={
             "name": filename,
-            "parents": [images_id],
-        }
+            "parents": [RECEIPTS_FOLDER_ID]
+        },
+        media_body=media
+    ).execute()
 
-        service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id",
-        ).execute()
+    # Excel 追記
+    excel_id = get_or_create_excel(service)
+    append_excel(service, excel_id, [date, payee, description, amount_display])
 
-        # ===== Excel 更新 =====
-        excel_id = find_file(service, "receipts.xlsx", root_id)
-        if not excel_id:
-            return "receipts.xlsx が見つかりません"
+    return "アップロード完了しました 👍"
 
-        # ダウンロード
-        fh = io.BytesIO()
-        request_dl = service.files().get_media(fileId=excel_id)
-        downloader = MediaIoBaseDownload(fh, request_dl)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
 
-        fh.seek(0)
-        wb = load_workbook(fh)
-        ws = wb.active
-
-        ws.append([
-            request.form["date"],
-            request.form["payee"],
-            request.form["description"],
-            filename,
-        ])
-
-        # アップロード（上書き）
-        fh_out = io.BytesIO()
-        wb.save(fh_out)
-        fh_out.seek(0)
-
-        media_excel = MediaIoBaseUpload(
-            fh_out,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            resumable=False,
-        )
-
-        service.files().update(
-            fileId=excel_id,
-            media_body=media_excel,
-        ).execute()
-
-        return redirect(url_for("upload"))
-
-    return render_template_string(HTML)
-
-# ========================
-# 起動
-# ========================
+# ===== 起動 =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
