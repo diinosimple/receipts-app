@@ -87,6 +87,7 @@ def get_drive_service():
 
 
 # ===== Excel ファイル取得 or 作成 =====
+
 def get_or_create_excel(service):
     query = f"name='{EXCEL_FILE_NAME}' and '{RECEIPTS_FOLDER_ID}' in parents"
     res = service.files().list(q=query, fields="files(id,name)").execute()
@@ -102,11 +103,14 @@ def get_or_create_excel(service):
 
     buf = io.BytesIO()
     wb.save(buf)
+
+    # ★これが超重要
     buf.seek(0)
 
     media = MediaIoBaseUpload(
         buf,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        resumable=False
     )
 
     file_metadata = {
