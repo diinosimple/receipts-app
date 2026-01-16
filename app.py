@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 app = Flask(__name__)
 
 # --- 環境変数 ---
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 EXCEL_FILE_ID = os.environ['EXCEL_FILE_ID']         # Excel ファイルID
 RECEIPTS_FOLDER_ID = os.environ['RECEIPTS_FOLDER_ID']  # 個人 Drive フォルダID
 GOOGLE_CREDENTIALS_JSON = os.environ['GOOGLE_CREDENTIALS_JSON']  # OAuth クライアント情報
