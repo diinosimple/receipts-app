@@ -31,13 +31,11 @@ def get_drive_service():
 # Excelに追記
 # ===========================
 def update_excel(service, filename, pay_date, payee, amount):
-    # 【修正箇所】 get_media ではなく export を使用する
-    # mimeTypeに 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' を指定してExcel形式で取得
+    # エクスポート（GoogleスプレッドシートをExcelとして取得）
     request_dl = service.files().export_media(
         fileId=EXCEL_FILE_ID,
         mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request_dl)
     done = False
@@ -45,23 +43,31 @@ def update_excel(service, filename, pay_date, payee, amount):
         status, done = downloader.next_chunk()
     fh.seek(0)
 
-    # 以降の openpyxl での読み込みと追記処理はそのまま
+    # openpyxlで読み込み
     wb = load_workbook(fh)
-    ws = wb.active
-    ws.append([pay_date, payee, amount, filename, ])
+    ws = wb.active # アクティブなシート（一番左のシート）
+    
+    # 【対策】明示的にデータがある最終行の次を指定する
+    # ws.append ではなく、行番号を計算して直接代入する手法
+    new_row = ws.max_row + 1
+    ws.cell(row=new_row, column=1, value=filename)
+    ws.cell(row=new_row, column=2, value=pay_date)
+    ws.cell(row=new_row, column=3, value=payee)
+    ws.cell(row=new_row, column=4, value=amount)
 
-    # 保存してアップロード（更新）
     out_fh = io.BytesIO()
     wb.save(out_fh)
     out_fh.seek(0)
 
-    # 更新時は update を使用
+    # アップロード（Googleスプレッドシート形式に戻すために、updateではなく別の処理が必要な場合がありますが
+    # 既存のEXCEL_FILE_IDがGoogleスプレッドシートの場合は、以下のmedia_bodyで更新可能です）
     media = MediaIoBaseUpload(
         out_fh, 
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
         resumable=True
     )
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
+    # supportsAllDrives=True を維持
+    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
 
 # ===========================
 # ファイルアップロード
