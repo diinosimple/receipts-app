@@ -31,7 +31,7 @@ def get_drive_service():
 # Excelに追記
 # ===========================
 def update_excel(service, filename, pay_date, payee, amount):
-    # エクスポート（GoogleスプレッドシートをExcelとして取得）
+    # 1. スプレッドシートをExcel形式でエクスポートして取得
     request_dl = service.files().export_media(
         fileId=EXCEL_FILE_ID,
         mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -43,32 +43,43 @@ def update_excel(service, filename, pay_date, payee, amount):
         status, done = downloader.next_chunk()
     fh.seek(0)
 
-    # openpyxlで読み込み
+    # 2. openpyxlで読み込み
     wb = load_workbook(fh)
-    ws = wb.active # アクティブなシート（一番左のシート）
+    ws = wb.active
+
+    # 3. 手動編集による「空行」対策：データが入っている本当の最終行を探す
+    real_last_row = 0
+    for row in range(ws.max_row, 0, -1):
+        if any(cell.value is not None for cell in ws[row]):
+            real_last_row = row
+            break
     
-    # 【対策】明示的にデータがある最終行の次を指定する
-    # ws.append ではなく、行番号を計算して直接代入する手法
-    new_row = ws.max_row + 1
+    # 本当の最終行の次に追加
+    new_row = real_last_row + 1
     ws.cell(row=new_row, column=1, value=filename)
     ws.cell(row=new_row, column=2, value=pay_date)
     ws.cell(row=new_row, column=3, value=payee)
     ws.cell(row=new_row, column=4, value=amount)
 
+    # 4. メモリ上のバイナリに保存
     out_fh = io.BytesIO()
     wb.save(out_fh)
     out_fh.seek(0)
 
-    # アップロード（Googleスプレッドシート形式に戻すために、updateではなく別の処理が必要な場合がありますが
-    # 既存のEXCEL_FILE_IDがGoogleスプレッドシートの場合は、以下のmedia_bodyで更新可能です）
+    # 5. 【重要】Googleドライブ上の既存ファイルを更新
+    # スプレッドシート形式を維持したまま上書きする
     media = MediaIoBaseUpload(
         out_fh, 
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         resumable=True
     )
-    # supportsAllDrives=True を維持
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
-
+    # updateメソッドで、既存のファイルIDを指定して中身を入れ替える
+    service.files().update(
+        fileId=EXCEL_FILE_ID,
+        media_body=media,
+        supportsAllDrives=True
+    ).execute()
+    
 # ===========================
 # ファイルアップロード
 # ===========================
