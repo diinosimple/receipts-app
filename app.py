@@ -31,12 +31,15 @@ def get_drive_service():
         creds = None
         # TOKEN_PICKLE_B64 から creds を復元
         if 'TOKEN_PICKLE_B64' in os.environ:
+            import base64, pickle, io
             token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
             creds = pickle.load(io.BytesIO(token_bytes))
+        
         if not creds or not creds.valid:
             raise Exception("Google API credentials are invalid or missing")
+        
         service = build('drive', 'v3', credentials=creds)
-        print("Drive service successfully created")
+        print("Drive service successfully created")  # service 作成後に出力
         return service
     except Exception as e:
         print("Error creating Drive service:", e)
