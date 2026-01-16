@@ -56,10 +56,10 @@ def update_excel(service, filename, pay_date, payee, amount):
     
     # 本当の最終行の次に追加
     new_row = real_last_row + 1
-    ws.cell(row=new_row, column=1, value=filename)
-    ws.cell(row=new_row, column=2, value=pay_date)
-    ws.cell(row=new_row, column=3, value=payee)
-    ws.cell(row=new_row, column=4, value=amount)
+    ws.cell(row=new_row, column=1, value=pay_date)
+    ws.cell(row=new_row, column=2, value=payee)
+    ws.cell(row=new_row, column=3, value=amount)
+    ws.cell(row=new_row, column=4, value=filename)
 
     # 4. メモリ上のバイナリに保存
     out_fh = io.BytesIO()
