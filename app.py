@@ -1,148 +1,189 @@
-from flask import Flask, request
-from openpyxl import Workbook, load_workbook
-from datetime import datetime
-import os, io, pickle
+import os
+import io
+import datetime
+import pickle
 
+from flask import Flask, request, redirect, url_for, render_template_string
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from openpyxl import load_workbook
 
+# ========================
+# Flask
+# ========================
 app = Flask(__name__)
+
+# ========================
+# Google Drive 認証
+# ========================
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
-BASE_FOLDER = "ReceiptsApp"
-IMAGES_FOLDER = "images"
-EXCEL_NAME = "receipts.xlsx"
-
-# -----------------------
-# Google認証
-# -----------------------
 def get_drive_service():
     creds = None
     if os.path.exists("token.pickle"):
-        creds = pickle.load(open("token.pickle", "rb"))
+        with open("token.pickle", "rb") as f:
+            creds = pickle.load(f)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
-        pickle.dump(creds, open("token.pickle", "wb"))
+            raise RuntimeError("token.pickle not found or invalid")
 
     return build("drive", "v3", credentials=creds)
 
-service = get_drive_service()
-
-# -----------------------
-# Drive操作
-# -----------------------
-def get_or_create_folder(name, parent=None):
+# ========================
+# Drive 操作
+# ========================
+def find_folder(service, name, parent_id=None):
     q = f"name='{name}' and mimeType='application/vnd.google-apps.folder'"
-    if parent:
-        q += f" and '{parent}' in parents"
-    res = service.files().list(q=q, fields="files(id)").execute()
+    if parent_id:
+        q += f" and '{parent_id}' in parents"
+
+    res = service.files().list(q=q, spaces="drive").execute()
     files = res.get("files", [])
-    if files:
-        return files[0]["id"]
+    return files[0]["id"] if files else None
 
-    meta = {"name": name, "mimeType": "application/vnd.google-apps.folder"}
-    if parent:
-        meta["parents"] = [parent]
-    folder = service.files().create(body=meta, fields="id").execute()
-    return folder["id"]
 
-BASE_ID = get_or_create_folder(BASE_FOLDER)
-IMAGES_ID = get_or_create_folder(IMAGES_FOLDER, BASE_ID)
-
-def get_or_create_excel():
-    q = f"name='{EXCEL_NAME}' and '{BASE_ID}' in parents"
-    res = service.files().list(q=q, fields="files(id)").execute()
+def find_file(service, name, parent_id):
+    q = f"name='{name}' and '{parent_id}' in parents"
+    res = service.files().list(q=q, spaces="drive").execute()
     files = res.get("files", [])
-    if files:
-        return files[0]["id"]
+    return files[0]["id"] if files else None
 
-    wb = Workbook()
-    ws = wb.active
-    ws.append(["支払日", "支払先", "内容", "画像URL"])
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
+# ========================
+# 画面
+# ========================
+HTML = """
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Receipt Upload</title>
+</head>
+<body>
+<h2>領収書アップロード</h2>
 
-    media = MediaIoBaseUpload(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    meta = {"name": EXCEL_NAME, "parents": [BASE_ID]}
-    file = service.files().create(body=meta, media_body=media, fields="id").execute()
-    return file["id"]
+<form method="post" enctype="multipart/form-data">
+  <p>
+    <input
+      type="file"
+      name="image"
+      accept="image/*"
+      capture="environment"
+      required
+    >
+  </p>
 
-EXCEL_ID = get_or_create_excel()
+  <p>支払日:<br>
+     <input type="date" name="date" required>
+  </p>
 
-# Excelダウンロード
-def download_excel():
-    buf = io.BytesIO()
-    service.files().get_media(fileId=EXCEL_ID).execute()
-    request = service.files().get_media(fileId=EXCEL_ID)
-    downloader = MediaIoBaseDownload(buf, request)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    buf.seek(0)
-    return buf
+  <p>支払い先:<br>
+     <input type="text" name="payee" required>
+  </p>
 
-# Excelアップロード
-def upload_excel(buf):
-    media = MediaIoBaseUpload(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    service.files().update(fileId=EXCEL_ID, media_body=media).execute()
+  <p>内容:<br>
+     <input type="text" name="description" required>
+  </p>
 
-# -----------------------
-# Web
-# -----------------------
-@app.route("/")
-def index():
-    return '''
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-      <input type="date" name="pay_date" required><br>
-      <input type="text" name="pay_to" placeholder="支払先" required><br>
-      <input type="text" name="description" placeholder="内容" required><br>
-      <input type="file" name="image" accept="image/*" capture="camera" required><br>
-      <button type="submit">送信</button>
-    </form>
-    '''
+  <p>
+    <button type="submit">アップロード</button>
+  </p>
+</form>
 
-@app.route("/upload", methods=["POST"])
+</body>
+</html>
+"""
+
+
+
+# ========================
+# ルーティング
+# ========================
+@app.route("/", methods=["GET", "POST"])
 def upload():
-    image = request.files["image"]
-    pay_date = request.form["pay_date"]
-    pay_to = request.form["pay_to"]
-    description = request.form["description"]
+    if request.method == "POST":
+        service = get_drive_service()
 
-    filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + image.filename
+        # フォルダ取得
+        root_id = find_folder(service, "ReceiptsApp")
+        images_id = find_folder(service, "images", root_id)
 
-    # 画像をDriveへ
-    media = MediaIoBaseUpload(image.stream, mimetype=image.mimetype)
-    meta = {"name": filename, "parents": [IMAGES_ID]}
-    file = service.files().create(body=meta, media_body=media, fields="id").execute()
+        if not root_id or not images_id:
+            return "Drive フォルダが見つかりません"
 
-    file_id = file["id"]
+        # ===== 画像保存 =====
+        image = request.files["image"]
+        filename = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_") + image.filename
 
-    service.permissions().create(
-        fileId=file_id,
-        body={"type": "anyone", "role": "reader"}
-    ).execute()
+        media = MediaIoBaseUpload(
+            io.BytesIO(image.read()),
+            mimetype=image.content_type,
+            resumable=False,
+        )
 
-    url = f"https://drive.google.com/uc?id={file_id}"
+        file_metadata = {
+            "name": filename,
+            "parents": [images_id],
+        }
 
-    # Excel更新
-    buf = download_excel()
-    wb = load_workbook(buf)
-    ws = wb.active
-    ws.append([pay_date, pay_to, description, url])
+        service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id",
+        ).execute()
 
-    new_buf = io.BytesIO()
-    wb.save(new_buf)
-    new_buf.seek(0)
-    upload_excel(new_buf)
+        # ===== Excel 更新 =====
+        excel_id = find_file(service, "receipts.xlsx", root_id)
+        if not excel_id:
+            return "receipts.xlsx が見つかりません"
 
-    return "保存しました"
+        # ダウンロード
+        fh = io.BytesIO()
+        request_dl = service.files().get_media(fileId=excel_id)
+        downloader = MediaIoBaseDownload(fh, request_dl)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        fh.seek(0)
+        wb = load_workbook(fh)
+        ws = wb.active
+
+        ws.append([
+            request.form["date"],
+            request.form["payee"],
+            request.form["description"],
+            filename,
+        ])
+
+        # アップロード（上書き）
+        fh_out = io.BytesIO()
+        wb.save(fh_out)
+        fh_out.seek(0)
+
+        media_excel = MediaIoBaseUpload(
+            fh_out,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            resumable=False,
+        )
+
+        service.files().update(
+            fileId=excel_id,
+            media_body=media_excel,
+        ).execute()
+
+        return redirect(url_for("upload"))
+
+    return render_template_string(HTML)
+
+# ========================
+# 起動
+# ========================
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port, debug=True)
