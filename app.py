@@ -37,7 +37,7 @@ def get_drive_service():
 # -----------------------------
 def update_excel(service, filename, pay_date, payee, amount):
     # Excel ファイルを Drive からダウンロード
-    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID)
+    request_dl = service.files().get_media(fileId=EXCEL_FILE_ID, supportsAllDrives=True)
     fh = io.BytesIO(request_dl.execute())
     try:
         wb = load_workbook(fh)
@@ -54,8 +54,8 @@ def update_excel(service, filename, pay_date, payee, amount):
     fh_upload.seek(0)
 
     media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
-    service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
-
+    service.files().update(fileId=EXCEL_FILE_ID, media_body=media, supportsAllDrives=True).execute()
+    
 # -----------------------------
 # ルート
 # -----------------------------
