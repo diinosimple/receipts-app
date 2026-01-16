@@ -10,18 +10,18 @@ from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
 from openpyxl import load_workbook, Workbook
 
-pp = Flask(__name__)
+app = Flask(__name__)
 
 # -----------------------------
 # 環境変数（Railway 用）
 # -----------------------------
+COPES = ["https://www.googleapis.com/auth/drive"]
 TOKEN_PICKLE_B64 = os.environ.get("TOKEN_PICKLE_B64")  # token.pickle を base64 にしたもの
 EXCEL_FILE_ID = "1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk"      # Excel ファイルID
 RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"  # Drive フォルダID
 
 print("EXCEL_FILE_ID:", EXCEL_FILE_ID)  # デバッグ用
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 # === OAuth 認証の取得 ===
@@ -66,7 +66,7 @@ def update_excel(service, filename, pay_date, payee, amount):
     media = MediaIoBaseUpload(fh_upload, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", resumable=True)
     service.files().update(fileId=EXCEL_FILE_ID, media_body=media).execute()
 
-    
+
 
 # -----------------------------
 # ルート
