@@ -22,19 +22,40 @@ TOKEN_FILE = 'token.pickle'
 # --- Drive サービス取得 ---
 def get_drive_service():
     creds = None
-    # 既存 token があれば読み込む
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'rb') as token:
+
+    # ────────────────
+    # 1. TOKEN_PICKLE_B64 が環境変数にあれば、そこから creds を作る
+    # ────────────────
+    if 'TOKEN_PICKLE_B64' in os.environ:
+        import base64, io, pickle
+        token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
+        creds = pickle.load(io.BytesIO(token_bytes))
+
+    # ────────────────
+    # 2. 既存の token.pickle があれば読み込む（ローカル用）
+    # ────────────────
+    elif os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
             creds = pickle.load(token)
 
-    # 新規認証が必要な場合
+    # ────────────────
+    # 3. 認証がまだなければ OAuth フロー
+    # ────────────────
     if not creds or not creds.valid:
-        client_config = json.loads(GOOGLE_CREDENTIALS_JSON)
-        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+        import json
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        client_config = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
+        flow = InstalledAppFlow.from_client_config(client_config, ['https://www.googleapis.com/auth/drive.file'])
         creds = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, 'wb') as token:
+
+        # ローカル環境用に token.pickle 保存
+        with open('token.pickle', 'wb') as token:
             pickle.dump(creds, token)
 
+    # ────────────────
+    # 4. Drive API サービス作成
+    # ────────────────
+    from googleapiclient.discovery import build
     service = build('drive', 'v3', credentials=creds)
     return service
 
