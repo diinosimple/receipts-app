@@ -2,22 +2,87 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>領収書アップロード</title>
+  <style>
+    /* 画面一杯に表示するためのスタイル */
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #f4f4f9;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #333;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px; /* 要素の間隔 */
+    }
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box; /* paddingを含めたサイズ計算 */
+    }
+    button {
+      padding: 15px;
+      font-size: 1.1rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:active {
+      background-color: #0056b3;
+    }
+    .message {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e2f3ff;
+      border-radius: 5px;
+      color: #004085;
+    }
+  </style>
 </head>
 <body>
   <h1>領収書アップロード</h1>
+  
   <form method="POST" enctype="multipart/form-data">
-    <input type="file" name="receipt" accept="image/*" capture="camera" required>
-    <br><br>
-    支払日: <input type="date" name="pay_date" required><br>
-    支払先: <input type="text" name="payee" required><br>
-    金額: <input type="text" name="amount" required><br>
+    <div>
+      <label>ファイル:</label>
+      <input type="file" name="receipt" accept="image/*" capture="camera" required>
+    </div>
+
+    <div>
+      <label>支払日:</label>
+      <input type="date" name="pay_date" required>
+    </div>
+
+    <div>
+      <label>支払先:</label>
+      <input type="text" name="payee" placeholder="例: コンビニ" required>
+    </div>
+
+    <div>
+      <label>金額:</label>
+      <input type="text" name="amount" placeholder="例: 1000" required>
+    </div>
+
     <button type="submit">アップロード</button>
   </form>
+
   {% if message %}
-    <p>{{ message }}</p>
+    <div class="message">{{ message }}</div>
   {% endif %}
 </body>
 </html>
-
-
