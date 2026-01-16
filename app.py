@@ -26,22 +26,24 @@ print("EXCEL_FILE_ID:", EXCEL_FILE_ID)  # デバッグ用
 
 # === OAuth 認証の取得 ===
 def get_drive_service():
-    print("Drive service:", service)
-    creds = None
-    # 環境変数から token.pickle を読み込む場合
-    if 'TOKEN_PICKLE_B64' in os.environ:
-        token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
-        creds = pickle.load(io.BytesIO(token_bytes))
-    else:
-        # ローカル開発時はブラウザ認証
-        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-        creds = flow.run_local_server(port=0)
-        # token.pickle 保存（ローカル用）
-        with open("token.pickle", "wb") as token:
-            pickle.dump(creds, token)
-    service = build('drive', 'v3', credentials=creds)
-    return service
+    """Google Drive API サービスオブジェクトを返す"""
+    try:
+        creds = None
+        # TOKEN_PICKLE_B64 から creds を復元
+        if 'TOKEN_PICKLE_B64' in os.environ:
+            token_bytes = base64.b64decode(os.environ['TOKEN_PICKLE_B64'])
+            creds = pickle.load(io.BytesIO(token_bytes))
+        if not creds or not creds.valid:
+            raise Exception("Google API credentials are invalid or missing")
+        service = build('drive', 'v3', credentials=creds)
+        print("Drive service successfully created")
+        return service
+    except Exception as e:
+        print("Error creating Drive service:", e)
+        raise  # Flask に伝えるため再度例外を投げる
 
+
+    
 # -----------------------------
 # Excel ファイル取得/更新
 # -----------------------------
