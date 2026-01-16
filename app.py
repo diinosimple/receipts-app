@@ -1,6 +1,8 @@
 import os
 import io
 import base64
+import pickle
+
 from flask import Flask, request
 from werkzeug.utils import secure_filename
 
@@ -78,7 +80,9 @@ def restore_token_from_env():
 def get_drive_service():
     restore_token_from_env()
 
-    creds = Credentials.from_authorized_user_file("token.pickle", SCOPES)
+    with open("token.pickle", "rb") as f:
+        creds = pickle.load(f)
+
     return build("drive", "v3", credentials=creds)
 
 
