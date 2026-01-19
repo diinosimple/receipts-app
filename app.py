@@ -1,7 +1,7 @@
 import os, base64, pickle, io, img2pdf, re, json
 from flask import Flask, request, render_template, jsonify
 from google.cloud import vision
-from google as genai
+from google import genai
 from google.genai import types
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
