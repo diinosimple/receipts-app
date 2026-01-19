@@ -1,10 +1,12 @@
-import os, base64, pickle, io, img2pdf, re
+import os, base64, pickle, io, img2pdf, re, json
 from flask import Flask, request, render_template, jsonify
 from google.cloud import vision
+import google.generativeai as genai
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
 from openpyxl import load_workbook
+
 
 app = Flask(__name__)
 
@@ -17,6 +19,10 @@ if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
         f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"))
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
     print(f"GCP Key file created at: {key_path}")
+
+# Gemini API (APIキー)
+# Railwayの環境変数に GEMINI_API_KEY を設定してください
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # ===========================
 # 設定値
@@ -40,37 +46,44 @@ def analyze():
         file = request.files["receipt"]
         content = file.read()
 
+        # STEP 1: Vision APIで文字を抽出
         client = vision.ImageAnnotatorClient()
         image = vision.Image(content=content)
         response = client.text_detection(image=image)
-        texts = response.text_annotations
+        
+        if not response.text_annotations:
+            return jsonify({"pay_date": "", "payee": "", "amount": ""})
+            
+        full_text = response.text_annotations[0].description
 
-        if not texts:
+        # STEP 2: Geminiに解析テキストを渡し、構造化データに変換
+        # 文脈から正確な合計金額や店名を判断させます
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"""
+        以下の領収書の解析テキストから、[支払日(YYYY-MM-DD形式), 支払先名称, 合計金額(数値のみ)]を抽出し、
+        必ず以下のJSON形式のみで回答してください。和暦は西暦に変換してください。
+        不明な項目は空文字にしてください。
+        {{
+          "pay_date": "YYYY-MM-DD",
+          "payee": "店名",
+          "amount": "1234"
+        }}
+        テキスト:
+        {full_text}
+        """
+        
+        gemini_response = model.generate_content(prompt)
+        # 返答からJSON部分のみを抽出
+        json_match = re.search(r'\{.*\}', gemini_response.text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            return jsonify(result)
+        else:
             return jsonify({"pay_date": "", "payee": "", "amount": ""})
 
-        full_text = texts[0].description
-        
-        # 簡易抽出ロジック（正規表現）
-        # 日付: YYYY/MM/DD 等
-        pay_date = ""
-        date_match = re.search(r'(\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2})', full_text)
-        if date_match:
-            pay_date = date_match.group(1).replace('年','-').replace('月','-').replace('日','').replace('/','-')
-
-        # 金額: ￥や合計の後の数字
-        amount = ""
-        amount_match = re.search(r'(?:[¥￥]|合計)\s*([\d,]{3,})', full_text)
-        if amount_match:
-            amount = amount_match.group(1).replace(',', '')
-
-        # 支払先: 最初の行
-        lines = [l.strip() for l in full_text.split('\n') if l.strip()]
-        payee = lines[0] if lines else ""
-
-        return jsonify({"pay_date": pay_date, "payee": payee, "amount": amount})
     except Exception as e:
-        print(f"OCR Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"AI OCR Error: {e}")
+        return jsonify({"error": str(e)}), 500    
 
 
 # ===========================
