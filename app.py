@@ -1,10 +1,10 @@
 import os, base64, pickle, io, img2pdf, re, json
 from flask import Flask, request, render_template, jsonify
 from google.cloud import vision
-import google.generativeai as genai
+from google as genai
+from google.genai import types
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
-from google.oauth2.credentials import Credentials
 from openpyxl import load_workbook
 
 
@@ -20,9 +20,9 @@ if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
     print(f"GCP Key file created at: {key_path}")
 
-# Gemini API (APIキー)
-# Railwayの環境変数に GEMINI_API_KEY を設定してください
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+
+# 新しい SDK のクライアント初期化
+client_gemini = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # ===========================
 # 設定値
@@ -46,19 +46,17 @@ def analyze():
         file = request.files["receipt"]
         content = file.read()
 
-        # STEP 1: Vision APIで文字を抽出
-        client = vision.ImageAnnotatorClient()
+        # 1. Vision APIで文字抽出
+        client_vision = vision.ImageAnnotatorClient()
         image = vision.Image(content=content)
-        response = client.text_detection(image=image)
+        response_vision = client_vision.text_detection(image=image)
         
-        if not response.text_annotations:
+        if not response_vision.text_annotations:
             return jsonify({"pay_date": "", "payee": "", "amount": ""})
             
-        full_text = response.text_annotations[0].description
+        full_text = response_vision.text_annotations[0].description
 
-        # STEP 2: Geminiに解析テキストを渡し、構造化データに変換
-        # 文脈から正確な合計金額や店名を判断させます
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # 2. 新しい SDK を使用した Gemini 解析
         prompt = f"""
         以下の領収書の解析テキストから、[支払日(YYYY-MM-DD形式), 支払先名称, 合計金額(数値のみ)]を抽出し、
         必ず以下のJSON形式のみで回答してください。和暦は西暦に変換してください。
@@ -72,9 +70,14 @@ def analyze():
         {full_text}
         """
         
-        gemini_response = model.generate_content(prompt)
-        # 返答からJSON部分のみを抽出
-        json_match = re.search(r'\{.*\}', gemini_response.text, re.DOTALL)
+        # 新しいメソッド呼び出し形式
+        response_gemini = client_gemini.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
+        
+        # JSON部分を抽出してパース
+        json_match = re.search(r'\{.*\}', response_gemini.text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group())
             return jsonify(result)
@@ -83,8 +86,8 @@ def analyze():
 
     except Exception as e:
         print(f"AI OCR Error: {e}")
-        return jsonify({"error": str(e)}), 500    
-
+        return jsonify({"error": str(e)}), 500
+         
 
 # ===========================
 # Google Drive サービス作成
