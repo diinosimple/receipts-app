@@ -72,7 +72,7 @@ def analyze():
         
         # 新しいメソッド呼び出し形式
         response_gemini = client_gemini.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt
         )
         
