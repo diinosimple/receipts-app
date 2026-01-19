@@ -3,38 +3,188 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>領収書アップロード</title>
+  <title>Receipts Portal | Global Business</title>
   <style>
-    /* ...既存のスタイル... */
-    body { font-family: sans-serif; margin: 0; padding: 20px; box-sizing: border-box; background-color: #f4f4f9; }
-    form { display: flex; flex-direction: column; gap: 15px; }
-    input, button { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
-    #progress-container { display: none; margin-top: 20px; }
-    progress { width: 100%; height: 25px; }
-    #status-text { margin-top: 10px; font-weight: bold; color: #007bff; }
-    
-    /* メッセージのスタイル */
-    .success { color: #28a745; font-weight: bold; margin-top: 20px; }
-    .error { color: #dc3545; font-weight: bold; margin-top: 20px; }
+    /* グローバルビジネスを象徴する背景画像 */
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      /* ビジネスと繋がりを象徴する背景画像 */
+      background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), 
+                  url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1352&q=80');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+
+    /* グラスモーフィズムなカードデザイン */
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 40px 30px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 300;
+      margin-bottom: 30px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      text-align: left;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.8;
+    }
+
+    input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+      padding: 12px;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    input:focus {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #00d4ff;
+    }
+
+    /* iPhoneのファイル選択ボタンのカスタマイズ */
+    input[type="file"]::file-selector-button {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      padding: 5px 10px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 15px;
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00d4ff 0%, #0072ff 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 114, 255, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 8px rgba(0, 114, 255, 0.5);
+    }
+
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    /* プログレスバー */
+    #progress-container {
+      display: none;
+      margin-top: 25px;
+    }
+
+    progress {
+      width: 100%;
+      height: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    progress::-webkit-progress-bar { background: rgba(255, 255, 255, 0.1); }
+    progress::-webkit-progress-value { background: #00d4ff; }
+
+    #status-text {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    .message {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+
+    .success { background: rgba(40, 167, 69, 0.2); border: 1px solid #28a745; color: #a2ffb8; }
+    .error { background: rgba(220, 53, 69, 0.2); border: 1px solid #dc3545; color: #ffb1b8; }
   </style>
 </head>
 <body>
-  <h1>領収書アップロード</h1>
-  <form id="upload-form">
-    <div><label>ファイル:</label><input type="file" name="receipt" accept="image/*" capture="camera" required></div>
-    <div><label>支払日:</label><input type="date" name="pay_date" required></div>
-    <div><label>支払先:</label><input type="text" name="payee" required></div>
-    <div><label>金額:</label><input type="text" name="amount" required></div>
-    <button type="submit" id="submit-btn">アップロード</button>
-  </form>
+  <div class="container">
+    <h1>Receipt Portal</h1>
+    
+    <form id="upload-form">
+      <div class="form-group">
+        <label>Receipt Capture</label>
+        <input type="file" name="receipt" id="file-input" accept="image/*" capture="camera" required>
+      </div>
+      <div class="form-group">
+        <label>Date of Payment</label>
+        <input type="date" name="pay_date" required>
+      </div>
+      <div class="form-group">
+        <label>Vendor / Payee</label>
+        <input type="text" name="payee" placeholder="e.g. Airline, Hotel, Office Supply" required>
+      </div>
+      <div class="form-group">
+        <label>Amount (USD/JPY)</label>
+        <input type="text" name="amount" placeholder="Enter value" required>
+      </div>
+      <button type="submit" id="submit-btn">Execute Upload</button>
+    </form>
 
-  <div id="progress-container">
-    <div id="status-text">アップロード処理中...</div>
-    <progress id="upload-progress" value="0" max="100"></progress>
-    <div id="percent-text">0%</div>
+    <div id="progress-container">
+      <div id="status-text">Processing Global Transaction...</div>
+      <progress id="upload-progress" value="0" max="100"></progress>
+      <div id="percent-text">0%</div>
+    </div>
+
+    <div id="result-message"></div>
   </div>
-  <div id="result-message"></div>
 
   <script>
     const form = document.getElementById('upload-form');
@@ -53,38 +203,34 @@
       progressContainer.style.display = 'block';
       resultMessage.innerHTML = '';
       submitBtn.disabled = true;
-      statusText.innerText = 'アップロード処理中...';
+      statusText.innerText = 'Uploading to Cloud Storage...';
 
       xhr.upload.addEventListener('progress', function(e) {
         if (e.lengthComputable) {
           const percentComplete = Math.round((e.loaded / e.total) * 100);
-          const displayPercent = Math.min(percentComplete, 90); 
+          const displayPercent = Math.min(percentComplete, 95); 
           progressBar.value = displayPercent;
           percentText.innerText = displayPercent + '%';
         }
       });
 
-      // サーバーからのレスポンス処理
       xhr.onload = function() {
         if (xhr.status === 200) {
           progressBar.value = 100;
           percentText.innerText = '100%';
-          statusText.innerText = '完了！';
-          resultMessage.innerHTML = '<p class="success">画像保存と起票が完了</p>';
+          statusText.innerText = 'Data Sync Completed';
+          resultMessage.innerHTML = '<p class="success">✓ 画像保存と起票が完了</p>';
           form.reset();
         } else {
-          // エラー発生時（404, 403, 500 など）
-          statusText.innerText = 'エラー';
-          resultMessage.innerHTML = '<p class="error">処理が正常に終了できませんでした</p>';
-          console.error('Server Error:', xhr.responseText);
+          statusText.innerText = 'Process Failed';
+          resultMessage.innerHTML = '<p class="error">✗ 処理が正常に終了できませんでした</p>';
         }
         submitBtn.disabled = false;
       };
 
-      // ネットワーク切断などの通信エラー時
       xhr.onerror = function() {
-        statusText.innerText = '通信エラー';
-        resultMessage.innerHTML = '<p class="error">処理が正常に終了できませんでした</p>';
+        statusText.innerText = 'Connection Error';
+        resultMessage.innerHTML = '<p class="error">✗ 処理が正常に終了できませんでした</p>';
         submitBtn.disabled = false;
       };
 
