@@ -3,184 +3,212 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tokyo Receipt Hub | AI Global Portal</title>
+  <title>Dai's Receipt Hub | Pop & Smart</title>
   <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #FF0080 0%, #7928CA 100%);
+      --accent-color: #00DFD8;
+      --bg-overlay: rgba(0, 0, 0, 0.3);
+    }
+
     body {
-      font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', sans-serif;
+      font-family: 'Avenir Next', 'Helvetica Neue', sans-serif;
       margin: 0;
       padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      /* 東京の明るい都市風景 */
-      background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
-                  url('https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-1.2.1&auto=format&fit=crop&w=1388&q=80');
+      /* より明るくエネルギッシュな都市の夜景 */
+      background: linear-gradient(rgba(121, 40, 202, 0.3), rgba(255, 0, 128, 0.3)), 
+                  url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
       background-size: cover;
       background-position: center;
       background-attachment: fixed;
+      overflow-x: hidden;
     }
 
-    /* グラスモーフィズム・デザイン */
+    /* ポップな浮遊感のあるカード */
     .container {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 24px;
-      padding: 40px 30px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      padding: 40px 25px;
       width: 90%;
-      max-width: 420px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
       color: #fff;
       text-align: center;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
 
     h1 {
-      font-size: 1.6rem;
-      font-weight: 600;
+      font-size: 2.2rem;
+      font-weight: 900;
       margin-bottom: 30px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      background: linear-gradient(to right, #00DFD8, #FF0080);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
 
     form {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 15px;
       text-align: left;
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
 
     label {
-      font-size: 0.8rem;
-      font-weight: bold;
+      font-size: 0.75rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: 2px;
+      color: var(--accent-color);
+      margin-left: 5px;
     }
 
     input {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      border-radius: 12px;
-      padding: 14px;
-      color: #fff;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      border-radius: 15px;
+      padding: 15px;
+      color: #333;
       font-size: 1rem;
+      font-weight: 600;
       outline: none;
-      transition: background 0.3s, border-color 0.3s;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
 
     input:focus {
-      background: rgba(255, 255, 255, 0.3);
-      border-color: #00f2fe;
+      transform: scale(1.02);
+      box-shadow: 0 0 15px var(--accent-color);
     }
 
-    /* iOS日付入力対策 */
-    input[type="date"] {
-      color-scheme: dark;
+    /* ファイル選択のデザイン */
+    input[type="file"] {
+      background: rgba(0, 223, 216, 0.1);
+      color: #fff;
+      border: 2px dashed var(--accent-color);
     }
 
     button {
-      margin-top: 15px;
-      padding: 16px;
-      font-size: 1rem;
-      font-weight: bold;
+      margin-top: 20px;
+      padding: 18px;
+      font-size: 1.1rem;
+      font-weight: 900;
       text-transform: uppercase;
-      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      background: var(--primary-gradient);
       color: #fff;
       border: none;
-      border-radius: 14px;
+      border-radius: 50px;
       cursor: pointer;
-      box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);
-      transition: all 0.3s ease;
+      box-shadow: 0 10px 20px rgba(255, 0, 128, 0.3);
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    button:active {
-      transform: translateY(2px);
-      box-shadow: 0 4px 10px rgba(79, 172, 254, 0.6);
+    button:hover {
+      transform: scale(1.05) rotate(-1deg);
+      box-shadow: 0 15px 25px rgba(255, 0, 128, 0.5);
     }
 
     button:disabled {
-      background: #666;
-      cursor: not-allowed;
+      background: #444;
+      transform: none;
       box-shadow: none;
     }
 
-    /* プログレス・ステータス表示 */
+    /* ワクワクするプログレスバー */
     #progress-container {
       display: none;
-      margin-top: 25px;
+      margin-top: 30px;
     }
 
     progress {
       width: 100%;
-      height: 6px;
-      border-radius: 10px;
+      height: 12px;
+      border-radius: 20px;
+      overflow: hidden;
       appearance: none;
       -webkit-appearance: none;
     }
 
-    progress::-webkit-progress-bar { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-    progress::-webkit-progress-value { background: #00f2fe; border-radius: 10px; }
+    progress::-webkit-progress-bar { background: rgba(255, 255, 255, 0.2); }
+    progress::-webkit-progress-value { 
+      background: linear-gradient(to right, #00DFD8, #FF0080); 
+      border-radius: 20px;
+    }
 
     #status-text {
       margin-top: 10px;
-      font-size: 0.85rem;
-      letter-spacing: 1px;
-      font-weight: bold;
+      font-weight: 800;
+      font-style: italic;
+      color: var(--accent-color);
+      animation: pulse 1.5s infinite;
     }
 
-    #percent-text {
-      font-size: 0.8rem;
-      margin-top: 5px;
-      opacity: 0.8;
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
 
     .message {
       margin-top: 20px;
       padding: 15px;
-      border-radius: 12px;
-      font-weight: bold;
-      font-size: 0.9rem;
+      border-radius: 15px;
+      font-weight: 900;
+      font-size: 1rem;
+      transform: scale(0);
+      animation: popIn 0.5s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    .success { background: rgba(0, 242, 254, 0.15); border: 1px solid #00f2fe; color: #00f2fe; }
-    .error { background: rgba(255, 79, 79, 0.15); border: 1px solid #ff4f4f; color: #ff4f4f; }
+    @keyframes popIn {
+      to { transform: scale(1); }
+    }
+
+    .success { background: #00DFD8; color: #000; }
+    .error { background: #FF0080; color: #fff; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Tokyo Receipt Hub</h1>
+    <h1>Dai's Receipt Hub</h1>
     
     <form id="upload-form">
       <div class="form-group">
-        <label>Receipt Capture</label>
+        <label>📸 Snap Receipt</label>
         <input type="file" name="receipt" id="file-input" accept="image/*" capture="camera" required>
       </div>
       <div class="form-group">
-        <label>Date</label>
+        <label>📅 When?</label>
         <input type="date" name="pay_date" id="pay-date" required>
       </div>
       <div class="form-group">
-        <label>Payee</label>
-        <input type="text" name="payee" id="payee" placeholder="Vendor name" required>
+        <label>🏢 Where?</label>
+        <input type="text" name="payee" id="payee" placeholder="Shop Name" required>
       </div>
       <div class="form-group">
-        <label>Amount</label>
-        <input type="text" name="amount" id="amount" placeholder="Value (JPY/USD)" required>
+        <label>💰 How Much?</label>
+        <input type="text" name="amount" id="amount" placeholder="Total Amount" required>
       </div>
-      <button type="submit" id="submit-btn">Execute PDF Archive</button>
+      <button type="submit" id="submit-btn">SEND TO CLOUD 🚀</button>
     </form>
 
     <div id="progress-container">
-      <div id="status-text">Ready for Processing</div>
+      <div id="status-text">AI is thinking...</div>
       <progress id="upload-progress" value="0" max="100"></progress>
       <div id="percent-text">0%</div>
     </div>
@@ -198,42 +226,34 @@
     const resultMessage = document.getElementById('result-message');
     const submitBtn = document.getElementById('submit-btn');
 
-    // 1. 画像選択時にAI解析(OCR)を実行
+    // 画像選択時にAI解析(OCR)を実行
     fileInput.addEventListener('change', async function() {
       if (!fileInput.files || !fileInput.files[0]) return;
 
       progressContainer.style.display = 'block';
-      statusText.innerText = 'AI Scanning: Analyzing receipt...';
+      statusText.innerText = '✨ AI MAGIC IN PROGRESS...';
       resultMessage.innerHTML = '';
-      progressBar.value = 10;
-      percentText.innerText = 'Analyzing...';
+      progressBar.value = 20;
 
       const formData = new FormData();
       formData.append('receipt', fileInput.files[0]);
 
       try {
-        const response = await fetch('/analyze', {
-          method: 'POST',
-          body: formData
-        });
+        const response = await fetch('/analyze', { method: 'POST', body: formData });
         const data = await response.json();
 
-        // 抽出データをフォームに反映（ユーザーは修正可能）
         if (data.pay_date) document.getElementById('pay-date').value = data.pay_date;
         if (data.payee) document.getElementById('payee').value = data.payee;
         if (data.amount) document.getElementById('amount').value = data.amount;
 
-        statusText.innerText = 'AI Scan Complete. Verify details.';
+        statusText.innerText = '🌈 MAGIC COMPLETE! CHECK IT.';
         progressBar.value = 100;
-        percentText.innerText = 'Scan Done';
       } catch (err) {
-        console.error(err);
-        statusText.innerText = 'AI Scan failed. Please enter manually.';
-        progressBar.value = 0;
+        statusText.innerText = '😅 OOPS! AI MISSED. TYPE IT IN!';
       }
     });
 
-    // 2. フォーム送信（PDF変換・保存・起票）
+    // フォーム送信
     form.addEventListener('submit', function(e) {
       e.preventDefault();
       const formData = new FormData(form);
@@ -242,34 +262,24 @@
       progressContainer.style.display = 'block';
       resultMessage.innerHTML = '';
       submitBtn.disabled = true;
-      statusText.innerText = 'Archiving & Syncing to Tokyo Hub...';
+      statusText.innerText = '🚀 BLASTING OFF TO GOOGLE DRIVE...';
 
       xhr.upload.addEventListener('progress', function(e) {
         if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
-          const displayPercent = Math.min(percentComplete, 95); 
-          progressBar.value = displayPercent;
-          percentText.innerText = displayPercent + '%';
+          progressBar.value = Math.round((e.loaded / e.total) * 100);
+          percentText.innerText = progressBar.value + '%';
         }
       });
 
       xhr.onload = function() {
         if (xhr.status === 200) {
-          progressBar.value = 100;
-          percentText.innerText = '100%';
-          statusText.innerText = 'Global Archive Completed';
-          resultMessage.innerHTML = '<div class="message success">✓ 画像保存と起票が完了</div>';
+          statusText.innerText = '⭐ SUCCESS! TARGET SAVED.';
+          resultMessage.innerHTML = '<div class="message success">🎉 MISSION COMPLETE!</div>';
           form.reset();
         } else {
-          statusText.innerText = 'Process Aborted';
-          resultMessage.innerHTML = '<div class="message error">✗ 処理が正常に終了できませんでした</div>';
+          statusText.innerText = '💀 SYSTEM ERROR';
+          resultMessage.innerHTML = '<div class="message error">💥 OH NO! FAILED.</div>';
         }
-        submitBtn.disabled = false;
-      };
-
-      xhr.onerror = function() {
-        statusText.innerText = 'Network Error';
-        resultMessage.innerHTML = '<div class="message error">✗ 処理が正常に終了できませんでした</div>';
         submitBtn.disabled = false;
       };
 
