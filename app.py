@@ -9,13 +9,14 @@ from openpyxl import load_workbook
 app = Flask(__name__)
 
 
-# --- Railwayの環境変数からGCP認証ファイルを生成 ---
-# 変数名: GOOGLE_APPLICATION_CREDENTIALS_JSON に JSONの中身を貼り付けてください
+# --- Railwayの環境変数からGCP認証ファイルを生成するロジック ---
+# これにより、Google Cloud SDK が自動的にこのファイルを見にいきます
 if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
-    with open("gcp-key.json", "w") as f:
+    key_path = os.path.join(os.getcwd(), "gcp-key.json")
+    with open(key_path, "w") as f:
         f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"))
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcp-key.json"
-
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
+    print(f"GCP Key file created at: {key_path}")
 
 # ===========================
 # 設定値
