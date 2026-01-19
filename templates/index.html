@@ -5,84 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>領収書アップロード</title>
   <style>
-    /* 画面一杯に表示するためのスタイル */
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
-      box-sizing: border-box;
-      background-color: #f4f4f9;
-    }
-    h1 {
-      font-size: 1.5rem;
-      color: #333;
-    }
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 15px; /* 要素の間隔 */
-    }
-    input[type="text"],
-    input[type="date"],
-    input[type="number"],
-    input[type="file"] {
-      width: 100%;
-      padding: 12px;
-      font-size: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      box-sizing: border-box; /* paddingを含めたサイズ計算 */
-    }
-    button {
-      padding: 15px;
-      font-size: 1.1rem;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:active {
-      background-color: #0056b3;
-    }
-    .message {
-      margin-top: 20px;
-      padding: 10px;
-      background-color: #e2f3ff;
-      border-radius: 5px;
-      color: #004085;
-    }
+    /* ...既存のスタイル... */
+    body { font-family: sans-serif; margin: 0; padding: 20px; box-sizing: border-box; background-color: #f4f4f9; }
+    form { display: flex; flex-direction: column; gap: 15px; }
+    input, button { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    #progress-container { display: none; margin-top: 20px; }
+    progress { width: 100%; height: 25px; }
+    #status-text { margin-top: 10px; font-weight: bold; color: #007bff; }
+    
+    /* メッセージのスタイル */
+    .success { color: #28a745; font-weight: bold; margin-top: 20px; }
+    .error { color: #dc3545; font-weight: bold; margin-top: 20px; }
   </style>
 </head>
 <body>
   <h1>領収書アップロード</h1>
-  
-  <form method="POST" enctype="multipart/form-data">
-    <div>
-      <label>ファイル:</label>
-      <input type="file" name="receipt" accept="image/*" capture="camera" required>
-    </div>
-
-    <div>
-      <label>支払日:</label>
-      <input type="date" name="pay_date" required>
-    </div>
-
-    <div>
-      <label>支払先:</label>
-      <input type="text" name="payee" placeholder="例: コンビニ" required>
-    </div>
-
-    <div>
-      <label>金額:</label>
-      <input type="text" name="amount" placeholder="例: 1000" required>
-    </div>
-
-    <button type="submit">アップロード</button>
+  <form id="upload-form">
+    <div><label>ファイル:</label><input type="file" name="receipt" accept="image/*" capture="camera" required></div>
+    <div><label>支払日:</label><input type="date" name="pay_date" required></div>
+    <div><label>支払先:</label><input type="text" name="payee" required></div>
+    <div><label>金額:</label><input type="text" name="amount" required></div>
+    <button type="submit" id="submit-btn">アップロード</button>
   </form>
 
-  {% if message %}
-    <div class="message">{{ message }}</div>
-  {% endif %}
+  <div id="progress-container">
+    <div id="status-text">アップロード処理中...</div>
+    <progress id="upload-progress" value="0" max="100"></progress>
+    <div id="percent-text">0%</div>
+  </div>
+  <div id="result-message"></div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('upload-progress');
+    const statusText = document.getElementById('status-text');
+    const percentText = document.getElementById('percent-text');
+    const resultMessage = document.getElementById('result-message');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const xhr = new XMLHttpRequest();
+
+      progressContainer.style.display = 'block';
+      resultMessage.innerHTML = '';
+      submitBtn.disabled = true;
+      statusText.innerText = 'アップロード処理中...';
+
+      xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          const displayPercent = Math.min(percentComplete, 90); 
+          progressBar.value = displayPercent;
+          percentText.innerText = displayPercent + '%';
+        }
+      });
+
+      // サーバーからのレスポンス処理
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          progressBar.value = 100;
+          percentText.innerText = '100%';
+          statusText.innerText = '完了！';
+          resultMessage.innerHTML = '<p class="success">画像保存と起票が完了</p>';
+          form.reset();
+        } else {
+          // エラー発生時（404, 403, 500 など）
+          statusText.innerText = 'エラー';
+          resultMessage.innerHTML = '<p class="error">処理が正常に終了できませんでした</p>';
+          console.error('Server Error:', xhr.responseText);
+        }
+        submitBtn.disabled = false;
+      };
+
+      // ネットワーク切断などの通信エラー時
+      xhr.onerror = function() {
+        statusText.innerText = '通信エラー';
+        resultMessage.innerHTML = '<p class="error">処理が正常に終了できませんでした</p>';
+        submitBtn.disabled = false;
+      };
+
+      xhr.open('POST', '/', true);
+      xhr.send(formData);
+    });
+  </script>
 </body>
 </html>

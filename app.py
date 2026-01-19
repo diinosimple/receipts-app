@@ -115,9 +115,11 @@ def index():
             service = get_drive_service()
             upload_file_to_drive(service, file, filename)
             update_excel(service, filename, pay_date, payee, amount)
-            message = f"画像 {filename} を受信しました。"
+            return "Success", 200
         except Exception as e:
             message = f"エラー: {e}"
+            print(f"Error detail: {e}") # サーバーログに詳細を出力
+            return "Internal Server Error", 500 # JavaScript側に失敗を伝える
 
     return render_template("index.html", message=message)
 
