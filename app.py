@@ -1,5 +1,6 @@
-import os, base64, pickle, io, img2pdf
-from flask import Flask, request, render_template
+import os, base64, pickle, io, img2pdf, re
+from flask import Flask, request, render_template, jsonify
+from google.cloud import vision
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
@@ -14,6 +15,30 @@ TOKEN_PICKLE_B64 = "gASV8QMAAAAAAACMGWdvb2dsZS5vYXV0aDIuY3JlZGVudGlhbHOUjAtDcmVk
 EXCEL_FILE_ID = "1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk"      # Excel ファイルID
 RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"           # Drive フォルダID
 SCOPES = ['https://www.googleapis.com/auth/drive']
+
+
+# ===========================
+# OCR解析ロジック
+# ===========================
+def extract_info_from_text(full_text):
+    # 日付の抽出 (YYYY/MM/DD, YYYY-MM-DD, YYYY年MM月DD日)
+    date_pattern = r'(\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2})'
+    date_match = re.search(date_pattern, full_text)
+    pay_date = ""
+    if date_match:
+        pay_date = date_match.group(1).replace('年','-').replace('月','-').replace('日','').replace('/','-')
+
+    # 金額の抽出 (￥または合計の後の数字)
+    amount_pattern = r'(?:[¥￥]|合計)\s*([\d,]{3,})'
+    amount_match = re.search(amount_pattern, full_text)
+    amount = amount_match.group(1).replace(',', '') if amount_match else ""
+
+    # 支払先 (最初の1〜2行に店名があることが多い)
+    lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+    payee = lines[0] if lines else ""
+
+    return {"pay_date": pay_date, "payee": payee, "amount": amount}
+
 
 # ===========================
 # Google Drive サービス作成
@@ -113,7 +138,36 @@ def upload_file_to_drive(service, file, filename):
 # ===========================
 # ルート
 # ===========================
-@app.route("/", methods=["GET", "POST"])
+@app.route("/analyze", methods=["GET", "POST"])
+
+
+def analyze():
+    try:
+        if "receipt" not in request.files:
+            return jsonify({"error": "No file"}), 400
+        
+        file = request.files["receipt"]
+        content = file.read()
+
+        # Cloud Vision API実行
+        # ※Railwayの変数に GOOGLE_APPLICATION_CREDENTIALS_JSON を設定する運用が推奨されます
+        client = vision.ImageAnnotatorClient()
+        image = vision.Image(content=content)
+        response = client.text_detection(image=image)
+        texts = response.text_annotations
+
+        if not texts:
+            return jsonify({"pay_date": "", "payee": "", "amount": ""})
+
+        full_text = texts[0].description
+        result = extract_info_from_text(full_text)
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 def index():
     message = ""
     if request.method == "POST":
