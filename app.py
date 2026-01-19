@@ -8,14 +8,19 @@ from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-# ===========================
-# 設定値
-# ===========================
+
+# --- Railwayの環境変数からGCP認証ファイルを生成 ---
+# 変数名: GOOGLE_APPLICATION_CREDENTIALS_JSON に JSONの中身を貼り付けてください
 if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
     with open("gcp-key.json", "w") as f:
         f.write(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"))
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcp-key.json"
-    
+
+
+# ===========================
+# 設定値
+# ===========================
+
 TOKEN_PICKLE_B64 = "gASV8QMAAAAAAACMGWdvb2dsZS5vYXV0aDIuY3JlZGVudGlhbHOUjAtDcmVkZW50aWFsc5STlCmBlH2UKIwFdG9rZW6UjP15YTI5LmEwQVVNV2dfTGFYeTQ5dC1pb082Y1JrRVMxcGJhRUkxUE5HVnlkMlBNZnA2MGQtMUtOdWdIV0VwejFiS0NYU0JvVFY3aEtWT19NektTTUdLbV9lQ2dPd1J5UG9IT2RiTk5WQV9lTmF5cjNUMlhUaDd1Nmx0Z0FNTkNPcDYyV2hOdlA4bHNzbnlPbEdrc0RKNFZCRWowZzE4UVBVY0pCTUNFZDg0UTZvWVFKZVZzaTlhb2J6VUM0bnAtaFQyZ3RjVVRvc3pNWG10c2FDZ1lLQVZZU0FROFNGUUhHWDJNaUctMWZLQjlreXk5cDlOTk1CdW4wQVEwMjA2lIwGZXhwaXJ5lIwIZGF0ZXRpbWWUjAhkYXRldGltZZSTlEMKB+oBEA4TOAAAAJSFlFKUjBFfcXVvdGFfcHJvamVjdF9pZJROjA9fdHJ1c3RfYm91bmRhcnmUTowQX3VuaXZlcnNlX2RvbWFpbpSMDmdvb2dsZWFwaXMuY29tlIwZX3VzZV9ub25fYmxvY2tpbmdfcmVmcmVzaJSJjAdfc2NvcGVzlF2UjCVodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9hdXRoL2RyaXZllGGMD19kZWZhdWx0X3Njb3Blc5ROjA5fcmVmcmVzaF90b2tlbpSMZzEvLzBncEVOY2NoYmZCNXRDZ1lJQVJBQUdCQVNOd0YtTDlJcmtBYS1EajRBWm1pRVQwMGYyNVN3bE5VNU55MFo3X3ZLUEFXdi1oVnd0aXNNRXNBUDZDWGR0cWdLNnBseGNmenBKOHeUjAlfaWRfdG9rZW6UTowPX2dyYW50ZWRfc2NvcGVzlF2UjCVodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9hdXRoL2RyaXZllGGMCl90b2tlbl91cmmUjCNodHRwczovL29hdXRoMi5nb29nbGVhcGlzLmNvbS90b2tlbpSMCl9jbGllbnRfaWSUjEg3Mzg1NzkzMzc0NTMtaTRiM2toYXA2ZjEwcmlybzhqOGM3ZmZqZnJoNGUzYzAuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb22UjA5fY2xpZW50X3NlY3JldJSMI0dPQ1NQWC1jcnljX0JVWmM5VFlqMWNtRTNzajZVcmZHczZ6lIwLX3JhcHRfdG9rZW6UTowWX2VuYWJsZV9yZWF1dGhfcmVmcmVzaJSJjAhfYWNjb3VudJSMAJSMD19jcmVkX2ZpbGVfcGF0aJROdWIu"
 EXCEL_FILE_ID = "1rf3DTxGpTNM0VZxcBkMjV2AyhE0oDiJlgv-_V_G3pbk"      # Excel ファイルID
 RECEIPTS_FOLDER_ID = "1UaC4E-5O408ozxKx_VlFoYWilFWTbf-f"           # Drive フォルダID
@@ -23,26 +28,48 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 
 
 # ===========================
-# OCR解析ロジック
+# OCR解析用エンドポイント
 # ===========================
-def extract_info_from_text(full_text):
-    # 日付の抽出 (YYYY/MM/DD, YYYY-MM-DD, YYYY年MM月DD日)
-    date_pattern = r'(\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2})'
-    date_match = re.search(date_pattern, full_text)
-    pay_date = ""
-    if date_match:
-        pay_date = date_match.group(1).replace('年','-').replace('月','-').replace('日','').replace('/','-')
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    try:
+        if "receipt" not in request.files:
+            return jsonify({"error": "No file"}), 400
+        
+        file = request.files["receipt"]
+        content = file.read()
 
-    # 金額の抽出 (￥または合計の後の数字)
-    amount_pattern = r'(?:[¥￥]|合計)\s*([\d,]{3,})'
-    amount_match = re.search(amount_pattern, full_text)
-    amount = amount_match.group(1).replace(',', '') if amount_match else ""
+        client = vision.ImageAnnotatorClient()
+        image = vision.Image(content=content)
+        response = client.text_detection(image=image)
+        texts = response.text_annotations
 
-    # 支払先 (最初の1〜2行に店名があることが多い)
-    lines = [l.strip() for l in full_text.split('\n') if l.strip()]
-    payee = lines[0] if lines else ""
+        if not texts:
+            return jsonify({"pay_date": "", "payee": "", "amount": ""})
 
-    return {"pay_date": pay_date, "payee": payee, "amount": amount}
+        full_text = texts[0].description
+        
+        # 簡易抽出ロジック（正規表現）
+        # 日付: YYYY/MM/DD 等
+        pay_date = ""
+        date_match = re.search(r'(\d{4}[/\-年]\d{1,2}[/\-月]\d{1,2})', full_text)
+        if date_match:
+            pay_date = date_match.group(1).replace('年','-').replace('月','-').replace('日','').replace('/','-')
+
+        # 金額: ￥や合計の後の数字
+        amount = ""
+        amount_match = re.search(r'(?:[¥￥]|合計)\s*([\d,]{3,})', full_text)
+        if amount_match:
+            amount = amount_match.group(1).replace(',', '')
+
+        # 支払先: 最初の行
+        lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+        payee = lines[0] if lines else ""
+
+        return jsonify({"pay_date": pay_date, "payee": payee, "amount": amount})
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ===========================
@@ -143,36 +170,8 @@ def upload_file_to_drive(service, file, filename):
 # ===========================
 # ルート
 # ===========================
-@app.route("/analyze", methods=["GET", "POST"])
 
-
-def analyze():
-    try:
-        if "receipt" not in request.files:
-            return jsonify({"error": "No file"}), 400
-        
-        file = request.files["receipt"]
-        content = file.read()
-
-        # Cloud Vision API実行
-        # ※Railwayの変数に GOOGLE_APPLICATION_CREDENTIALS_JSON を設定する運用が推奨されます
-        client = vision.ImageAnnotatorClient()
-        image = vision.Image(content=content)
-        response = client.text_detection(image=image)
-        texts = response.text_annotations
-
-        if not texts:
-            return jsonify({"pay_date": "", "payee": "", "amount": ""})
-
-        full_text = texts[0].description
-        result = extract_info_from_text(full_text)
-        
-        return jsonify(result)
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
+@app.route("/", methods=["GET", "POST"])
 def index():
     message = ""
     if request.method == "POST":
