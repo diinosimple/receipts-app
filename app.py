@@ -1,4 +1,4 @@
-import os, base64, pickle, io
+import os, base64, pickle, io, img2pdf
 from flask import Flask, request, render_template
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
@@ -81,12 +81,34 @@ def update_excel(service, filename, pay_date, payee, amount):
     ).execute()
     
 # ===========================
-# ファイルアップロード
+# ファイルアップロード（PDF変換版）
 # ===========================
 def upload_file_to_drive(service, file, filename):
-    file_metadata = {"name": filename, "parents": [RECEIPTS_FOLDER_ID]}
-    media = MediaIoBaseUpload(file, mimetype=file.mimetype)
-    service.files().create(body=file_metadata, media_body=media, supportsAllDrives=True).execute()
+    # ファイル名を .jpg から .pdf に変更
+    pdf_filename = filename.replace(".jpg", ".pdf")
+    
+    # 画像をPDFに変換
+    pdf_bytes = img2pdf.convert(file.stream)
+    pdf_stream = io.BytesIO(pdf_bytes)
+
+    file_metadata = {
+        "name": pdf_filename, 
+        "parents": [RECEIPTS_FOLDER_ID]
+    }
+    
+    # MIMEタイプを application/pdf に指定
+    media = MediaIoBaseUpload(
+        pdf_stream, 
+        mimetype="application/pdf"
+    )
+    
+    service.files().create(
+        body=file_metadata, 
+        media_body=media, 
+        supportsAllDrives=True
+    ).execute()
+    
+    return pdf_filename  # 変換後のファイル名を返す
 
 # ===========================
 # ルート
@@ -107,14 +129,22 @@ def index():
         pay_date = request.form.get("pay_date")
         payee = request.form.get("payee")
         amount = request.form.get("amount")
+        
+        # ベースとなるファイル名（拡張子なし）
+        base_filename = f"{payee}_{pay_date}_{amount}"
 
         # ファイル名作成
         filename = f"{payee} {pay_date} {amount}.jpg"
 
         try:
             service = get_drive_service()
-            upload_file_to_drive(service, file, filename)
-            update_excel(service, filename, pay_date, payee, amount)
+            
+            # PDFとしてアップロードし、実際のファイル名を取得
+            final_filename = upload_file_to_drive(service, file, base_filename)
+            
+            # ExcelにはPDFのファイル名を記録
+            update_excel(service, final_filename, pay_date, payee, amount)
+            
             return "Success", 200
         except Exception as e:
             message = f"エラー: {e}"
