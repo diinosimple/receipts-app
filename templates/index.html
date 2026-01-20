@@ -271,10 +271,29 @@
         }
       });
 
-      xhr.onload = function() {
+     xhr.onload = function() {
         if (xhr.status === 200) {
+          const res = JSON.parse(xhr.responseText); // JSONデータをパース
           statusText.innerText = '⭐ SUCCESS! TARGET SAVED.';
-          resultMessage.innerHTML = '<div class="message success">🎉 MISSION COMPLETE!</div>';
+          
+          // ポップなデザインの確認ボタンを表示
+          resultMessage.innerHTML = `
+            <div class="message success">
+              🎉 MISSION COMPLETE!
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <a href="${res.file_url}" target="_blank" style="text-decoration: none;">
+                  <button type="button" style="width: 100%; background: #fff; color: #FF0080; margin: 0; padding: 12px; font-size: 0.9rem;">
+                    👁 アップロード画像の確認
+                  </button>
+                </a>
+                <a href="${res.spreadsheet_url}" target="_blank" style="text-decoration: none;">
+                  <button type="button" style="width: 100%; background: rgba(255,255,255,0.2); border: 2px solid #fff; margin: 0; padding: 12px; font-size: 0.9rem;">
+                    📊 領収書一覧を表示
+                  </button>
+                </a>
+              </div>
+            </div>
+          `;
           form.reset();
         } else {
           statusText.innerText = '💀 SYSTEM ERROR';

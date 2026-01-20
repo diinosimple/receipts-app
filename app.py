@@ -176,13 +176,15 @@ def upload_file_to_drive(service, file, filename):
         mimetype="application/pdf"
     )
     
-    service.files().create(
+    # 【変更】fields='name, webViewLink' を指定して、URLを取得する
+    uploaded_file = service.files().create(
         body=file_metadata, 
         media_body=media, 
+        fields='name, webViewLink',
         supportsAllDrives=True
     ).execute()
     
-    return pdf_filename  # 変換後のファイル名を返す
+    return uploaded_file.get('name'), uploaded_file.get('webViewLink')
 
 # ===========================
 # ルート
@@ -214,13 +216,24 @@ def index():
         try:
             service = get_drive_service()
             
-            # PDFとしてアップロードし、実際のファイル名を取得
-            final_filename = upload_file_to_drive(service, file, base_filename)
+          # 【変更】URLも受け取る
+            final_filename, file_url = upload_file_to_drive(service, file, base_filename)
+
             
             # ExcelにはPDFのファイル名を記録
             update_excel(service, final_filename, pay_date, payee, amount)
+
+            # スプレッドシートのURLを生成
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{EXCEL_FILE_ID}/edit"
             
-            return "Success", 200
+            # 【変更】成功時にURLを含むJSONを返す
+            return jsonify({
+                "status": "success",
+                "file_url": file_url,
+                "spreadsheet_url": spreadsheet_url
+            }), 200
+            
+            
         except Exception as e:
             message = f"エラー: {e}"
             print(f"Error detail: {e}") # サーバーログに詳細を出力
